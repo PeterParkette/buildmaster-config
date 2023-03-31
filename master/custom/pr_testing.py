@@ -46,7 +46,7 @@ class CustomGitHubEventHandler(GitHubEventHandler):
     def _post_comment(self, comments_url, comment):
         headers = {"User-Agent": "Buildbot"}
         if self._token:
-            headers["Authorization"] = "token " + self._token
+            headers["Authorization"] = f"token {self._token}"
 
         http = yield httpclientservice.HTTPClientService.getService(
             self.master,
@@ -65,7 +65,7 @@ class CustomGitHubEventHandler(GitHubEventHandler):
     def _remove_label_and_comment(self, payload, label):
         headers = {"User-Agent": "Buildbot"}
         if self._token:
-            headers["Authorization"] = "token " + self._token
+            headers["Authorization"] = f"token {self._token}"
 
         http = yield httpclientservice.HTTPClientService.getService(
             self.master,
@@ -96,7 +96,7 @@ class CustomGitHubEventHandler(GitHubEventHandler):
     def _get_pull_request(self, url):
         headers = {"User-Agent": "Buildbot"}
         if self._token:
-            headers["Authorization"] = "token " + self._token
+            headers["Authorization"] = f"token {self._token}"
 
         http = yield httpclientservice.HTTPClientService.getService(
             self.master,
@@ -107,9 +107,7 @@ class CustomGitHubEventHandler(GitHubEventHandler):
         )
         res = yield http.get(url)
         if 200 <= res.code < 300:
-            data = yield res.json()
-            return data
-
+            return (yield res.json())
         log.msg(f"Failed fetching PR from {url}: response code {res.code}")
         return None
 
@@ -121,7 +119,7 @@ class CustomGitHubEventHandler(GitHubEventHandler):
         url = f"https://api.github.com/repos/{repo}/collaborators/{user}/permission"
         headers = {"User-Agent": "Buildbot"}
         if self._token:
-            headers["Authorization"] = "token " + self._token
+            headers["Authorization"] = f"token {self._token}"
         http = yield httpclientservice.HTTPClientService.getService(
             self.master,
             self.github_api_endpoint,
@@ -143,7 +141,7 @@ class CustomGitHubEventHandler(GitHubEventHandler):
     def _get_changes_from_pull_request(
         self, changes, pr_number, payload, pull_request, event, builder_filter
     ):
-        refname = "refs/pull/{}/{}".format(pr_number, self.pullrequest_ref)
+        refname = f"refs/pull/{pr_number}/{self.pullrequest_ref}"
         basename = pull_request["base"]["ref"]
         commits = pull_request["commits"]
         title = pull_request["title"]
@@ -175,9 +173,7 @@ class CustomGitHubEventHandler(GitHubEventHandler):
 
         changes.append(change)
 
-        log.msg(
-            "Received {} changes from GitHub PR #{}".format(len(changes), pr_number)
-        )
+        log.msg(f"Received {len(changes)} changes from GitHub PR #{pr_number}")
         return (changes, "git")
 
     @defer.inlineCallbacks
@@ -188,14 +184,12 @@ class CustomGitHubEventHandler(GitHubEventHandler):
 
         # We only care about new comments
         if action != "created":
-            log.msg(
-                "GitHub PR #{} comment action is not 'created', ignoring".format(number)
-            )
+            log.msg(f"GitHub PR #{number} comment action is not 'created', ignoring")
             return (changes, "git")
 
         # We only care about comments on PRs, not issues.
         if "pull_request" not in payload["issue"]:
-            log.msg("GitHub PR #{} is not a pull request, ignoring".format(number))
+            log.msg(f"GitHub PR #{number} is not a pull request, ignoring")
             return (changes, "git")
 
         comment = payload["comment"]["body"].strip()
@@ -203,18 +197,14 @@ class CustomGitHubEventHandler(GitHubEventHandler):
         match = BUILDBOT_COMMAND.match(comment)
         # If the comment is not a buildbot command, ignore it
         if not match:
-            log.msg(
-                "GitHub PR #{} comment is not a buildbot command, ignoring".format(
-                    number
-                )
-            )
+            log.msg(f"GitHub PR #{number} comment is not a buildbot command, ignoring")
             return (changes, "git")
 
         builder_filter = match.group(1).strip()
 
         # If the command is empty, ignore it
         if not builder_filter:
-            log.msg("GitHub PR #{} command is empty, ignoring".format(number))
+            log.msg(f"GitHub PR #{number} command is empty, ignoring")
             return (changes, "git")
 
         # If the command is not from a user with write permissions, ignore it
@@ -222,9 +212,7 @@ class CustomGitHubEventHandler(GitHubEventHandler):
             yield self._user_has_write_permissions(payload, payload["sender"]["login"])
         ):
             log.msg(
-                "GitHub PR #{} user {} has no write permissions, ignoring".format(
-                    number, payload["sender"]["login"]
-                )
+                f'GitHub PR #{number} user {payload["sender"]["login"]} has no write permissions, ignoring'
             )
             yield self._post_comment(
                 payload["issue"]["comments_url"],
@@ -238,19 +226,18 @@ class CustomGitHubEventHandler(GitHubEventHandler):
         # contain a lot of information we need.
         pull_request = yield self._get_pull_request(pull_url)
         if pull_request is None:
-            log.msg("Failed to fetch PR #{} from {}".format(number, pull_url))
+            log.msg(f"Failed to fetch PR #{number} from {pull_url}")
             return (changes, "git")
 
         repo_full_name = payload["repository"]["full_name"]
         head_sha = pull_request["head"]["sha"]
 
-        log.msg("Processing GitHub PR #{}".format(number), logLevel=logging.DEBUG)
+        log.msg(f"Processing GitHub PR #{number}", logLevel=logging.DEBUG)
 
         head_msg = yield self._get_commit_msg(repo_full_name, head_sha)
         if self._has_skip(head_msg):
             log.msg(
-                "GitHub PR #{}, Ignoring: "
-                "head commit message contains skip pattern".format(number)
+                f"GitHub PR #{number}, Ignoring: head commit message contains skip pattern"
             )
             return ([], "git")
 
@@ -283,24 +270,23 @@ class CustomGitHubEventHandler(GitHubEventHandler):
         action = payload.get("action")
 
         if action != "labeled":
-            log.msg("GitHub PR #{} {}, ignoring".format(number, action))
+            log.msg(f"GitHub PR #{number} {action}, ignoring")
             return (changes, "git")
 
         label = payload.get("label")["name"]
         if label not in {TESTING_LABEL, REFLEAK_TESTING_LABEL}:
-            log.msg("Invalid label in PR #{}, ignoring".format(number))
+            log.msg(f"Invalid label in PR #{number}, ignoring")
             return (changes, "git")
 
         repo_full_name = payload["repository"]["full_name"]
         head_sha = payload["pull_request"]["head"]["sha"]
 
-        log.msg("Processing GitHub PR #{}".format(number), logLevel=logging.DEBUG)
+        log.msg(f"Processing GitHub PR #{number}", logLevel=logging.DEBUG)
 
         head_msg = yield self._get_commit_msg(repo_full_name, head_sha)
         if self._has_skip(head_msg):
             log.msg(
-                "GitHub PR #{}, Ignoring: "
-                "head commit message contains skip pattern".format(number)
+                f"GitHub PR #{number}, Ignoring: head commit message contains skip pattern"
             )
             return ([], "git")
 
