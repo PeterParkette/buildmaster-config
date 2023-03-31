@@ -53,8 +53,7 @@ class Logs:
         yield from set(TRACEBACK_REGEX.findall(self._logs))
 
     def get_leaks(self):
-        for test_name, resource in set(LEAKS_REGEX.findall(self._logs)):
-            yield test_name, resource
+        yield from set(LEAKS_REGEX.findall(self._logs))
 
     def get_failed_tests(self):
         yield from set(self._get_test_results(r"tests?\sfailed"))
@@ -74,8 +73,7 @@ class Logs:
             r"-+",  # Trailing decoration
             re.MULTILINE | re.VERBOSE,
         )
-        for test, subtest in set(failed_subtest_regexp.findall(self._logs)):
-            yield test, subtest
+        yield from set(failed_subtest_regexp.findall(self._logs))
 
     def test_summary(self):
         result_start = [
@@ -95,18 +93,15 @@ class Logs:
     def format_failing_tests(self):
 
         text = []
-        failed = list(self.get_failed_tests())
-        if failed:
+        if failed := list(self.get_failed_tests()):
             text.append("Failed tests:\n")
             text.extend([f"- {test_name}" for test_name in failed])
             text.append("")
-        failed_subtests = list(self.get_failed_subtests())
-        if failed_subtests:
+        if failed_subtests := list(self.get_failed_subtests()):
             text.append("Failed subtests:\n")
             text.extend([f"- {test} - {subtest}" for test, subtest in failed_subtests])
             text.append("")
-        leaked = list(self.get_leaks())
-        if leaked:
+        if leaked := list(self.get_leaks()):
             text.append("Test leaking resources:\n")
             text.extend(
                 [f"- {test_name}: {resource}" for test_name, resource in leaked]
@@ -121,12 +116,14 @@ def construct_tracebacks_from_build_stderr(build):
             test_log = step["logs"][0]["content"]["content"]
         except IndexError:
             continue
-        test_log = "\n".join(
-            [line.lstrip("e") for line in test_log.splitlines() if line.startswith("e")]
-        )
-        if not test_log:
-            continue
-        yield test_log
+        if test_log := "\n".join(
+            [
+                line.lstrip("e")
+                for line in test_log.splitlines()
+                if line.startswith("e")
+            ]
+        ):
+            yield test_log
 
 
 def get_logs_and_tracebacks_from_build(build):

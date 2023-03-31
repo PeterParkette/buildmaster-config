@@ -20,7 +20,7 @@ class GitHubPrScheduler(AnyBranchScheduler):
         builder_filter = chdict["properties"].get("builderfilter", None)
         builder_names = kwargs.get("builderNames", self.builderNames)
         if builder_filter and builder_names:
-            log.msg("Found builder filter: {}".format(builder_filter))
+            log.msg(f"Found builder filter: {builder_filter}")
             builder_filter, _ = builder_filter
             matcher = re.compile(builder_filter)
             builder_names = [
@@ -28,7 +28,7 @@ class GitHubPrScheduler(AnyBranchScheduler):
                 for builder_name in builder_names
                 if matcher.match(builder_name)
             ]
-            log.msg("Bulder names filtered: {}".format(builder_names))
+            log.msg(f"Bulder names filtered: {builder_names}")
             kwargs.update(builderNames=builder_names)
             yield super().addBuildsetForChanges(**kwargs)
             return

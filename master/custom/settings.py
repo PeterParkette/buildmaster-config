@@ -63,9 +63,7 @@ class Settings:
             value = self.value.get(key, default)
             if value is not ...:
                 return value
-        if default is not ...:
-            return default
-        return type(self)(path=self.path + [key])
+        return default if default is not ... else type(self)(path=self.path + [key])
 
     def _convert(self, func, default):
         if self.value is not ...:

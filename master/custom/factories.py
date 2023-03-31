@@ -115,15 +115,15 @@ class UnixBuild(TaggedBuildFactory):
         faulthandler_timeout = self.test_timeout - 5 * 60
         if parallel:
             compile = ["make", parallel, self.makeTarget]
-            testopts = testopts + " " + parallel
+            testopts = f"{testopts} {parallel}"
         if "-j" not in testopts:
-            testopts = "-j2 " + testopts
+            testopts = f"-j2 {testopts}"
         test = [
             "make",
             "buildbottest",
-            "TESTOPTS=" + testopts + " ${BUILDBOT_TESTOPTS}",
-            "TESTPYTHONOPTS=" + self.interpreterFlags,
-            "TESTTIMEOUT=" + str(faulthandler_timeout),
+            f"TESTOPTS={testopts}" + " ${BUILDBOT_TESTOPTS}",
+            f"TESTPYTHONOPTS={self.interpreterFlags}",
+            f"TESTTIMEOUT={str(faulthandler_timeout)}",
         ]
 
         self.addStep(Compile(command=compile,
@@ -197,7 +197,7 @@ class UnixInstalledBuild(TaggedBuildFactory):
             branch = main_branch_version
         elif branch == "custom":
             branch = "3"
-        installed_python = "./target/bin/python%s" % branch
+        installed_python = f"./target/bin/python{branch}"
         self.addStep(
             Configure(
                 command=["./configure", "--prefix", "$(PWD)/target"]
@@ -216,7 +216,7 @@ class UnixInstalledBuild(TaggedBuildFactory):
         if parallel:
             compile = ["make", parallel, self.makeTarget]
             install = ["make", parallel, self.installTarget]
-            testopts = testopts + [parallel]
+            testopts += [parallel]
 
         test = [installed_python] + self.interpreterFlags
         test += ["-m", "test.regrtest"] + testopts
@@ -340,7 +340,6 @@ class SharedUnixBuild(UnixBuild):
 SLOW_TIMEOUT = 40 * 60
 
 
-# These use a longer timeout for very slow buildbots.
 class SlowNonDebugUnixBuild(NonDebugUnixBuild):
     test_timeout = SLOW_TIMEOUT
 
@@ -487,9 +486,7 @@ class CentOS9NoBuiltinHashesUnixBuild(CentOS9Build):
     factory_tags = ["no-builtin-hashes"]
 
 
-##############################################################################
-############################  MACOS BUILDS  ##################################
-##############################################################################
+
 
 class MacOSArmWithBrewBuild(UnixBuild):
     buildersuffix = ".macos-with-brew"
@@ -499,7 +496,7 @@ class MacOSArmWithBrewBuild(UnixBuild):
         "LDFLAGS=-L/opt/homebrew/lib",
     ]
     # These tests are known to crash on M1 macs (see bpo-45289).
-    testFlags = UnixBuild.testFlags + " -x test_dbm test_dbm_ndbm test_shelve"
+    testFlags = f"{UnixBuild.testFlags} -x test_dbm test_dbm_ndbm test_shelve"
 
 ##############################################################################
 ############################  WINDOWS BUILDS  ################################
@@ -534,7 +531,7 @@ class BaseWindowsBuild(TaggedBuildFactory):
                 warnOnFailure=True,
             )
         )
-        timeout = self.test_timeout if self.test_timeout else TEST_TIMEOUT
+        timeout = self.test_timeout or TEST_TIMEOUT
         test_command += ["--timeout", timeout - (5 * 60)]
         self.addStep(Test(command=test_command, timeout=timeout))
         if branch not in ("3",) and "-R" not in self.testFlags:
@@ -668,11 +665,7 @@ class UnixCrossBuild(UnixBuild):
                 workdir=oot_build_path
             )
         )
-        if parallel:
-            compile = ["make", parallel]
-        else:
-            compile = ["make"]
-        
+        compile = ["make", parallel] if parallel else ["make"]
         self.addStep(
             Compile(
                 name="Compile build Python",
@@ -702,9 +695,9 @@ class UnixCrossBuild(UnixBuild):
         if "-R" not in self.testFlags:
             testopts += " --junit-xml test-results.xml"
         if parallel:
-            testopts = testopts + " " + parallel
+            testopts = f"{testopts} {parallel}"
         if "-j" not in testopts:
-            testopts = "-j2 " + testopts
+            testopts = f"-j2 {testopts}"
 
         # Timeout for the buildworker process
         self.test_timeout = self.test_timeout or TEST_TIMEOUT
@@ -714,9 +707,9 @@ class UnixCrossBuild(UnixBuild):
         test = [
             "make",
             "buildbottest",
-            "TESTOPTS=" + testopts + " ${BUILDBOT_TESTOPTS}",
-            "TESTPYTHONOPTS=" + self.interpreterFlags,
-            "TESTTIMEOUT=" + str(faulthandler_timeout),
+            f"TESTOPTS={testopts}" + " ${BUILDBOT_TESTOPTS}",
+            f"TESTPYTHONOPTS={self.interpreterFlags}",
+            f"TESTTIMEOUT={str(faulthandler_timeout)}",
         ]
 
         if parallel:
